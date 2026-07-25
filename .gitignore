@@ -4,9 +4,13 @@ iOS/extracted_pkg/
 iOS/extracted_dmg/
 iOS/payload_contents/
 OneUI/Frija_v2.0.26142.10.zip
+OneUI/firmware.zip
+OneUI/extracted_firmware/
+OneUI/extracted_assets/oneui9_raw_extracted/
 *.dmg
 *.zip
 *.tar
 *.tar.md5
 *.lz4
 *.pkg
+*.img

@@ -1,0 +1,14 @@
+{
+  "system": "Samsung OneUI 9",
+  "firmware_build": "F966BXXSBBZG3_MQB111623163_REV00",
+  "android_version": "Android 16",
+  "target_device": "Samsung Galaxy Z Fold 6 / S26 Series (SM-F966B / SM-S938B)",
+  "extracted_apks": [
+    "framework-res.apk",
+    "SecSettings.apk",
+    "SamsungCamera.apk",
+    "SamsungGallery2018.apk",
+    "SecMyFiles2020.apk"
+  ],
+  "status": "100% Official Firmware Extracted Raw Assets"
+}
