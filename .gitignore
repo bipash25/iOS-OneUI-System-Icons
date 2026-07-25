@@ -1,0 +1,12 @@
+# Binary installer packages & large intermediate extract folders
+iOS/sf-symbols-8-beta.dmg
+iOS/extracted_pkg/
+iOS/extracted_dmg/
+iOS/payload_contents/
+OneUI/Frija_v2.0.26142.10.zip
+*.dmg
+*.zip
+*.tar
+*.tar.md5
+*.lz4
+*.pkg

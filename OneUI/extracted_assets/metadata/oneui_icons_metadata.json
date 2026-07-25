@@ -1,0 +1,19 @@
+{
+  "system": "Samsung OneUI",
+  "supported_versions": [
+    "OneUI 8",
+    "OneUI 8.5",
+    "OneUI 9"
+  ],
+  "target_device": "Samsung Galaxy S26 Ultra & OneUI 8/8.5/9 Devices",
+  "firmware_source": "Official Samsung Firmware (Frija / FOTA AP Dumps)",
+  "squircle_corner_radius": "28%",
+  "total_app_icons": 20,
+  "vector_categories": [
+    "system_nav",
+    "quick_settings",
+    "status_bar",
+    "settings_icons",
+    "galaxy_ai"
+  ]
+}
