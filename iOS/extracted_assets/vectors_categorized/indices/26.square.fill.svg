@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
-  <g transform="scale(1, -1) translate(0, -800)">
-    <path d="M669 -62H1972C2309 -62 2569 193 2569 519C2569 850 2299 1095 1940 1094C1808 1359 1563 1520 1265 1520C874 1520 548 1214 515 821C316 765 179 595 179 383C179 122 374 -62 669 -62Z" fill="currentColor" />
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 1000 1000"><g><path fill="currentColor" d="M669 -62H1972C2309 -62 2569 193 2569 519C2569 850 2299 1095 1940 1094C1808 1359 1563 1520 1265 1520C874 1520 548 1214 515 821C316 765 179 595 179 383C179 122 374 -62 669 -62Z" transform="scale(1, -1) translate(0, -800)"/></g></svg>
