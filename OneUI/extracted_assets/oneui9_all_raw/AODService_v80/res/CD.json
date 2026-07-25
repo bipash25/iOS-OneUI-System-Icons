@@ -1,0 +1,55 @@
+{
+  "data": [
+    {
+      "version": 5,
+      "clocks": [
+        {"oldType":"AOD_DIGITAL_CLOCK_01", "newType":"2"},
+        {"oldType":"AOD_DIGITAL_CLOCK_02", "newType":"3"},
+        {"oldType":"AOD_DIGITAL_CLOCK_03", "newType":"1"},
+        {"oldType":"AOD_ANALOG_CLOCK_01", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_02", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_03", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_04", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_05", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_06", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_07", "newType":"10000"},
+        {"oldType":"AOD_WORLD_CLOCK", "newType":"50002"},
+        {"oldType":"AOD_USER_IMAGE_CLOCK", "newType":"50000"},
+        {"oldType":"AOD_SIGNATURE_CLOCK", "newType":"1"},
+        {"oldType":"AOD_THEME_CLOCK", "newType":"50004"},
+        {"oldType":"AOD_CALENDAR_CLOCK_01", "newType":"50001"},
+        {"oldType":"AOD_EVENT_CLOCK_01", "newType":"1"},
+        {"oldType":"EDGE_CLOCK", "newType":"50003"}
+      ]
+    },
+    {
+      "version": 6,
+      "clocks": [
+        {"oldType":"AOD_DIGITAL_CLOCK_01", "newType":"2"},
+        {"oldType":"AOD_DIGITAL_CLOCK_02", "newType":"3"},
+        {"oldType":"AOD_DIGITAL_CLOCK_03", "newType":"1"},
+        {"oldType":"AOD_ANALOG_CLOCK_01", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_02", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_03", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_04", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_05", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_06", "newType":"10000"},
+        {"oldType":"AOD_ANALOG_CLOCK_07", "newType":"10000"},
+        {"oldType":"AOD_WORLD_CLOCK", "newType":"50002"},
+        {"oldType":"AOD_USER_IMAGE_CLOCK", "newType":"50000"},
+        {"oldType":"AOD_SIGNATURE_CLOCK", "newType":"1"},
+        {"oldType":"AOD_THEME_CLOCK", "newType":"50004"},
+        {"oldType":"AOD_CALENDAR_CLOCK_01", "newType":"50001"},
+        {"oldType":"AOD_EVENT_CLOCK_01", "newType":"1"},
+        {"oldType":"EDGE_CLOCK", "newType":"50003"}
+      ]
+    }
+  ],
+  "default": [
+    {"version": 90000, "type": 1},
+    {"version": 90500, "type": 1},
+    {"version": 100000, "type": 9},
+    {"version": 200000, "type": 9}
+  ]
+}
+

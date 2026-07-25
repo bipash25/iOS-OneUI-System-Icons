@@ -1,0 +1,473 @@
+{
+  "id": "1761838405813",
+  "name": "agsl_now_bar_squircle",
+  "type": "canvas",
+  "zIndex": 1,
+  "visible": true,
+  "shaders": [
+    {
+      "id": 1,
+      "enabled": true,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nuniform float uSpeed;              // min: 0.1, max: 5.0, default: 0.4, 회전 속도\nuniform float uRectWidth;          // min: 0.1, max: 2.0, default: 0.7, 사각형 가로 크기\nuniform float uRectHeight;         // min: 0.1, max: 2.0, default: 0.7, 사각형 세로 크기\nuniform float uSquirclePower;      // min: 2.0, max: 8.0, default: 5.2, Squircle 곡률 (높을수록 각짐)\nuniform float uMarginHorizontal;   // min: 0.0, max: 0.5, default: 0.0, 좌우 마진\nuniform float uMarginVertical;     // min: 0.0, max: 0.5, default: 0.0, 상하 마진\nuniform float uThickness;          // min: 0.01, max: 0.2, default: 0.1, 기본 두께(중앙 기준)\nuniform float uTailLength;         // min: 0.1, max: 1.0, default: 0.6, 꼬리 길이 (0~1)\nuniform vec3 uColor1;             // min: [0.0, max: [1.0, default: [1.0, 0.6, 0.5], 그라데이션 1\nuniform vec3 uColor2;             // min: [0.0, max: [1.0, default: [0.9, 0.4, 0.4], 그라데이션 2\nuniform vec3 uColor3;             // min: [0.0, max: [1.0, default: [0.8, 0.7, 1.0], 그라데이션 3\nuniform vec3 uColor4;             // min: [0.0, max: [1.0, default: [0.5, 0.7, 1.0], 그라데이션 4\nuniform float uAlpha;              // min: 0.0, max: 1.0, default: 1.0, 전체 투명도\nuniform float uHeadThin;      // min: 0.2, max: 1.0, default: 0.7, 헤드 최소 두께 비율\nuniform float uTailThin;      // min: 0.0, max: 0.8, default: 0.3, 꼬리 끝 최소 두께 비율\nuniform float uFeather;       // min: 0.2, max: 1.5, default: 0.8, 가장자리 부드러움\nuniform float uTailFadePow;   // min: 0.5, max: 4.0, default: 3.4, 꼬리 밝기 감소 곡률\nuniform vec3 u2Color1;       // min: [0.0, max: [1.0, default: [0.9, 1.0, 0.5], 2번 그라데이션 1 (쿨 톤 권장)\nuniform vec3 u2Color2;       // min: [0.0, max: [1.0, default: [0.7, 1.0, 0.6], 2번 그라데이션 2\nuniform vec3 u2Color3;       // min: [0.0, max: [1.0, default: [0.7, 1.0, 0.5], 2번 그라데이션 3\nuniform vec3 u2Color4;       // min: [0.0, max: [1.0, default: [0.5, 0.9, 0.9], 2번 그라데이션 4(하이라이트)\nuniform float u2Alpha;        // min: 0.0, max: 1.0, default: 0.9, 두 번째 꼬리 알파(강도)\nvec2 getSquirclePoint(float t, vec2 size, float n) {\n    t = mod(t, 1.0);\n    float angle = t * 6.28318530718; // 2*PI\n    \n    float halfW = size.x * 0.5;\n    float halfH = size.y * 0.5;\n    \n    float cosA = cos(angle);\n    float sinA = sin(angle);\n    \n    float absCosA = abs(cosA);\n    float absSinA = abs(sinA);\n    \n    absCosA = max(absCosA, 0.0001);\n    absSinA = max(absSinA, 0.0001);\n    \n    float powCos = pow(absCosA, n);\n    float powSin = pow(absSinA, n);\n    \n    float denom = pow(powCos + powSin, 1.0 / n);\n    denom = max(denom, 0.0001);\n    \n    float x = halfW * sign(cosA) * absCosA / denom;\n    float y = halfH * sign(sinA) * absSinA / denom;\n    \n    return vec2(x, y);\n}\n\nfloat taperedThickness(float p) {\n    float head = mix(uHeadThin, 1.0, smoothstep(0.0, 0.35, p));\n    float tail = mix(1.0, uTailThin, smoothstep(0.55, 1.0, p));\n    float bell = 1.0 - abs(p - 0.5) * 1.6; bell = clamp(bell, 0.0, 1.0);\n    float profile = head * tail * bell;\n    return uThickness * clamp(profile, 0.0, 1.0);\n}\n\nfloat tailBrightness(float p) { return pow(1.0 - p, uTailFadePow); }\n\nvec3 rampColor(float phase, vec3 c1, vec3 c2, vec3 c3, vec3 c4) {\n    float t = mod(phase, 1.0) * 4.0;\n    if (t < 1.0) return mix(c1, c2, t);\n    if (t < 2.0) return mix(c2, c3, t - 1.0);\n    if (t < 3.0) return mix(c3, c4, t - 2.0);\n    return mix(c4, c1, t - 3.0);\n}\n\nvec4 main(vec2 fragCoord)\n{\n\n    // Y 방향 반전\n    vec2 uv = fragCoord / iResolution.xy;\n\n    // 마진 적용하여 유효 영역 계산\n    vec2 marginMin = vec2(uMarginHorizontal, uMarginVertical);\n    vec2 marginMax = vec2(1.0 - uMarginHorizontal, 1.0 - uMarginVertical);\n    vec2 validSize = marginMax - marginMin;\n    \n    // 중심점을 유효 영역 중심으로 설정\n    vec2 center = (marginMin + marginMax) * 0.5;\n    \n    // 화면 비율 고려\n    float aspect = iResolution.x / iResolution.y;\n    vec2 adjustedSize = vec2(uRectWidth, uRectHeight);\n    \n    // 유효 영역에 맞게 사각형 크기 조정\n    adjustedSize.x *= validSize.x;\n    adjustedSize.y *= validSize.y;\n    \n    // 비율 보정\n    if (aspect > 1.0) {\n        adjustedSize.x *= aspect;\n    } else {\n        adjustedSize.y /= aspect;\n    }\n\n    vec2 pos = uv - center;\n    \n    // 화면 비율에 따라 좌표 조정\n    if (aspect > 1.0) {\n        pos.x *= aspect;\n    } else {\n        pos.y /= aspect;\n    }\n    \n    float baseTime = iTime * uSpeed;\n\n    vec3  accColor = vec3(0.0);\n    float accAlpha = 0.0;\n\n    int samples = 64;\n\n    // --- Tail #1 (기존) ---\n    for (int i = 0; i < 64; i++) {\n        if (i >= samples) break;\n        float t = float(i) / float(samples - 1) * uTailLength;\n        float p = t / uTailLength;\n        vec2 pathPos = getSquirclePoint(baseTime - t, adjustedSize, uSquirclePower);\n        float thick = taperedThickness(p);\n        float d = distance(pos, pathPos);\n        if (d < thick * (1.0 + uFeather)) {\n            vec3 col = rampColor(baseTime - t + 0.25, uColor1, uColor2, uColor3, uColor4);\n            float edge = 1.0 - smoothstep(thick * (1.0 - 0.35 * uFeather),\n                                          thick * (1.0 + 0.65 * uFeather), d);\n            float a = edge * tailBrightness(p) * uAlpha;\n            accColor += col * a;\n            accAlpha = max(accAlpha, a);\n        }\n    }\n\n    // --- Tail #2 (정확히 반대편: +0.5 위상 오프셋) ---\n    float oppositeTime = baseTime + 0.5;\n    for (int i = 0; i < 64; i++) {\n        if (i >= samples) break;\n        float t = float(i) / float(samples - 1) * uTailLength;\n        float p = t / uTailLength;\n        vec2 pathPos = getSquirclePoint(oppositeTime - t, adjustedSize, uSquirclePower);\n        float thick = taperedThickness(p);\n        float d = distance(pos, pathPos);\n        if (d < thick * (1.0 + uFeather)) {\n            vec3 col = rampColor(oppositeTime - t + 0.25, u2Color1, u2Color2, u2Color3, u2Color4);\n            float edge = 1.0 - smoothstep(thick * (1.0 - 0.35 * uFeather),\n                                          thick * (1.0 + 0.65 * uFeather), d);\n            float a = edge * tailBrightness(p) * u2Alpha;\n            accColor += col * a;\n            accAlpha = max(accAlpha, a);\n        }\n    }\n\n    accColor = clamp(accColor, 0.0, 1.0);\nreturn vec4(accColor, clamp(accAlpha, 0.0, 1.0));\n\n}",
+      "webglShaderCode": "// ===== Controls (첫 번째 꼬리) =====\nuniform float uSpeed;              // min: 0.1, max: 5.0, default: 0.4, 회전 속도\nuniform float uRectWidth;          // min: 0.1, max: 2.0, default: 0.7, 사각형 가로 크기\nuniform float uRectHeight;         // min: 0.1, max: 2.0, default: 0.7, 사각형 세로 크기\nuniform float uSquirclePower;      // min: 2.0, max: 8.0, default: 5.2, Squircle 곡률 (높을수록 각짐)\nuniform float uMarginHorizontal;   // min: 0.0, max: 0.5, default: 0.0, 좌우 마진\nuniform float uMarginVertical;     // min: 0.0, max: 0.5, default: 0.0, 상하 마진\nuniform float uThickness;          // min: 0.01, max: 0.2, default: 0.1, 기본 두께(중앙 기준)\nuniform float uTailLength;         // min: 0.1, max: 1.0, default: 0.6, 꼬리 길이 (0~1)\nuniform vec3  uColor1;             // min: [0.0, max: [1.0, default: [1.0, 0.6, 0.5], 그라데이션 1\nuniform vec3  uColor2;             // min: [0.0, max: [1.0, default: [0.9, 0.4, 0.4], 그라데이션 2\nuniform vec3  uColor3;             // min: [0.0, max: [1.0, default: [0.8, 0.7, 1.0], 그라데이션 3\nuniform vec3  uColor4;             // min: [0.0, max: [1.0, default: [0.5, 0.7, 1.0], 그라데이션 4\nuniform float uAlpha;              // min: 0.0, max: 1.0, default: 1.0, 전체 투명도\n\n// ===== 비대칭 테이퍼/페더 공통 파라미터 (두 꼬리 공용) =====\nuniform float uHeadThin;      // min: 0.2, max: 1.0, default: 0.7, 헤드 최소 두께 비율\nuniform float uTailThin;      // min: 0.0, max: 0.8, default: 0.3, 꼬리 끝 최소 두께 비율\nuniform float uFeather;       // min: 0.2, max: 1.5, default: 0.8, 가장자리 부드러움\nuniform float uTailFadePow;   // min: 0.5, max: 4.0, default: 3.4, 꼬리 밝기 감소 곡률\n\n// ===== 두 번째 꼬리(정반대 위치) 색/강도 =====\nuniform vec3  u2Color1;       // min: [0.0, max: [1.0, default: [0.9, 1.0, 0.5], 2번 그라데이션 1 (쿨 톤 권장)\nuniform vec3  u2Color2;       // min: [0.0, max: [1.0, default: [0.7, 1.0, 0.6], 2번 그라데이션 2\nuniform vec3  u2Color3;       // min: [0.0, max: [1.0, default: [0.7, 1.0, 0.5], 2번 그라데이션 3\nuniform vec3  u2Color4;       // min: [0.0, max: [1.0, default: [0.5, 0.9, 0.9], 2번 그라데이션 4(하이라이트)\nuniform float u2Alpha;        // min: 0.0, max: 1.0, default: 0.9, 두 번째 꼬리 알파(강도)\n\n// ====== 경로 함수: Squircle (시계 방향, 바깥쪽 곡선) ======\nvec2 getSquirclePoint(float t, vec2 size, float n) {\n    t = mod(t, 1.0);\n    float angle = t * 6.28318530718; // 2*PI\n    \n    float halfW = size.x * 0.5;\n    float halfH = size.y * 0.5;\n    \n    float cosA = cos(angle);\n    float sinA = sin(angle);\n    \n    float absCosA = abs(cosA);\n    float absSinA = abs(sinA);\n    \n    absCosA = max(absCosA, 0.0001);\n    absSinA = max(absSinA, 0.0001);\n    \n    float powCos = pow(absCosA, n);\n    float powSin = pow(absSinA, n);\n    \n    float denom = pow(powCos + powSin, 1.0 / n);\n    denom = max(denom, 0.0001);\n    \n    float x = halfW * sign(cosA) * absCosA / denom;\n    float y = halfH * sign(sinA) * absSinA / denom;\n    \n    return vec2(x, y);\n}\n\n// 두께 프로파일(0=헤드, 1=꼬리끝)\nfloat taperedThickness(float p) {\n    float head = mix(uHeadThin, 1.0, smoothstep(0.0, 0.35, p));\n    float tail = mix(1.0, uTailThin, smoothstep(0.55, 1.0, p));\n    float bell = 1.0 - abs(p - 0.5) * 1.6; bell = clamp(bell, 0.0, 1.0);\n    float profile = head * tail * bell;\n    return uThickness * clamp(profile, 0.0, 1.0);\n}\n\n// 길이 방향 밝기\nfloat tailBrightness(float p) { return pow(1.0 - p, uTailFadePow); }\n\n// 4색 그라데이션\nvec3 rampColor(float phase, vec3 c1, vec3 c2, vec3 c3, vec3 c4) {\n    float t = mod(phase, 1.0) * 4.0;\n    if (t < 1.0) return mix(c1, c2, t);\n    if (t < 2.0) return mix(c2, c3, t - 1.0);\n    if (t < 3.0) return mix(c3, c4, t - 2.0);\n    return mix(c4, c1, t - 3.0);\n}\n\nvoid mainImage(out vec4 fragColor, in vec2 fragCoord)\n{\n    // Y 반전 & 정규화\n    vec2 flippedCoord = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n    vec2 uv = flippedCoord / iResolution.xy;\n\n    // 마진 적용하여 유효 영역 계산\n    vec2 marginMin = vec2(uMarginHorizontal, uMarginVertical);\n    vec2 marginMax = vec2(1.0 - uMarginHorizontal, 1.0 - uMarginVertical);\n    vec2 validSize = marginMax - marginMin;\n    \n    // 중심점을 유효 영역 중심으로 설정\n    vec2 center = (marginMin + marginMax) * 0.5;\n    \n    // 화면 비율 고려\n    float aspect = iResolution.x / iResolution.y;\n    vec2 adjustedSize = vec2(uRectWidth, uRectHeight);\n    \n    // 유효 영역에 맞게 사각형 크기 조정\n    adjustedSize.x *= validSize.x;\n    adjustedSize.y *= validSize.y;\n    \n    // 비율 보정\n    if (aspect > 1.0) {\n        adjustedSize.x *= aspect;\n    } else {\n        adjustedSize.y /= aspect;\n    }\n\n    vec2 pos = uv - center;\n    \n    // 화면 비율에 따라 좌표 조정\n    if (aspect > 1.0) {\n        pos.x *= aspect;\n    } else {\n        pos.y /= aspect;\n    }\n    \n    float baseTime = iTime * uSpeed;\n\n    vec3  accColor = vec3(0.0);\n    float accAlpha = 0.0;\n\n    int samples = 64;\n\n    // --- Tail #1 (기존) ---\n    for (int i = 0; i < 64; i++) {\n        if (i >= samples) break;\n        float t = float(i) / float(samples - 1) * uTailLength;\n        float p = t / uTailLength;\n        vec2 pathPos = getSquirclePoint(baseTime - t, adjustedSize, uSquirclePower);\n        float thick = taperedThickness(p);\n        float d = distance(pos, pathPos);\n        if (d < thick * (1.0 + uFeather)) {\n            vec3 col = rampColor(baseTime - t + 0.25, uColor1, uColor2, uColor3, uColor4);\n            float edge = 1.0 - smoothstep(thick * (1.0 - 0.35 * uFeather),\n                                          thick * (1.0 + 0.65 * uFeather), d);\n            float a = edge * tailBrightness(p) * uAlpha;\n            accColor += col * a;\n            accAlpha = max(accAlpha, a);\n        }\n    }\n\n    // --- Tail #2 (정확히 반대편: +0.5 위상 오프셋) ---\n    float oppositeTime = baseTime + 0.5;\n    for (int i = 0; i < 64; i++) {\n        if (i >= samples) break;\n        float t = float(i) / float(samples - 1) * uTailLength;\n        float p = t / uTailLength;\n        vec2 pathPos = getSquirclePoint(oppositeTime - t, adjustedSize, uSquirclePower);\n        float thick = taperedThickness(p);\n        float d = distance(pos, pathPos);\n        if (d < thick * (1.0 + uFeather)) {\n            vec3 col = rampColor(oppositeTime - t + 0.25, u2Color1, u2Color2, u2Color3, u2Color4);\n            float edge = 1.0 - smoothstep(thick * (1.0 - 0.35 * uFeather),\n                                          thick * (1.0 + 0.65 * uFeather), d);\n            float a = edge * tailBrightness(p) * u2Alpha;\n            accColor += col * a;\n            accAlpha = max(accAlpha, a);\n        }\n    }\n\n    accColor = clamp(accColor, 0.0, 1.0);\n    fragColor = vec4(accColor, clamp(accAlpha, 0.0, 1.0));\n}",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "uSpeed",
+          "type": "float",
+          "value": 0.44,
+          "isCustom": true,
+          "minValue": 0.1,
+          "maxValue": 5,
+          "defaultValue": 0.4,
+          "comment": "min: 0.1, max: 5.0, default: 0.4, 회전 속도"
+        },
+        {
+          "name": "uRectWidth",
+          "type": "float",
+          "value": 0.7,
+          "isCustom": true,
+          "minValue": 0.1,
+          "maxValue": 2,
+          "defaultValue": 0.7,
+          "comment": "min: 0.1, max: 2.0, default: 0.7, 사각형 가로 크기"
+        },
+        {
+          "name": "uRectHeight",
+          "type": "float",
+          "value": 0.7,
+          "isCustom": true,
+          "minValue": 0.1,
+          "maxValue": 2,
+          "defaultValue": 0.7,
+          "comment": "min: 0.1, max: 2.0, default: 0.7, 사각형 세로 크기"
+        },
+        {
+          "name": "uSquirclePower",
+          "type": "float",
+          "value": 5.18,
+          "isCustom": true,
+          "minValue": 2,
+          "maxValue": 8,
+          "defaultValue": 5.2,
+          "comment": "min: 2.0, max: 8.0, default: 5.2, Squircle 곡률 (높을수록 각짐)"
+        },
+        {
+          "name": "uMarginHorizontal",
+          "type": "float",
+          "value": 0,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.5,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.5, default: 0.0, 좌우 마진"
+        },
+        {
+          "name": "uMarginVertical",
+          "type": "float",
+          "value": 0,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.5,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.5, default: 0.0, 상하 마진"
+        },
+        {
+          "name": "uThickness",
+          "type": "float",
+          "value": 0.05,
+          "isCustom": true,
+          "minValue": 0.01,
+          "maxValue": 0.2,
+          "defaultValue": 0.1,
+          "comment": "min: 0.01, max: 0.2, default: 0.1, 기본 두께(중앙 기준)"
+        },
+        {
+          "name": "uTailLength",
+          "type": "float",
+          "value": 0.6,
+          "isCustom": true,
+          "minValue": 0.1,
+          "maxValue": 1,
+          "defaultValue": 0.6,
+          "comment": "min: 0.1, max: 1.0, default: 0.6, 꼬리 길이 (0~1)"
+        },
+        {
+          "name": "uColor1",
+          "type": "vec3",
+          "value": [
+            1,
+            0.6,
+            0.5
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            1,
+            0.6,
+            0.5
+          ],
+          "comment": "min: [0.0, max: [1.0, default: [1.0, 0.6, 0.5], 그라데이션 1"
+        },
+        {
+          "name": "uColor2",
+          "type": "vec3",
+          "value": [
+            0.9,
+            0.4,
+            0.4
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.9,
+            0.4,
+            0.4
+          ],
+          "comment": "min: [0.0, max: [1.0, default: [0.9, 0.4, 0.4], 그라데이션 2"
+        },
+        {
+          "name": "uColor3",
+          "type": "vec3",
+          "value": [
+            0.8,
+            0.7,
+            1
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.8,
+            0.7,
+            1
+          ],
+          "comment": "min: [0.0, max: [1.0, default: [0.8, 0.7, 1.0], 그라데이션 3"
+        },
+        {
+          "name": "uColor4",
+          "type": "vec3",
+          "value": [
+            0.5,
+            0.7,
+            1
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.5,
+            0.7,
+            1
+          ],
+          "comment": "min: [0.0, max: [1.0, default: [0.5, 0.7, 1.0], 그라데이션 4"
+        },
+        {
+          "name": "uAlpha",
+          "type": "float",
+          "value": 1,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 1,
+          "comment": "min: 0.0, max: 1.0, default: 1.0, 전체 투명도"
+        },
+        {
+          "name": "uHeadThin",
+          "type": "float",
+          "value": 0.7,
+          "isCustom": true,
+          "minValue": 0.2,
+          "maxValue": 1,
+          "defaultValue": 0.7,
+          "comment": "min: 0.2, max: 1.0, default: 0.7, 헤드 최소 두께 비율"
+        },
+        {
+          "name": "uTailThin",
+          "type": "float",
+          "value": 0.3,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.8,
+          "defaultValue": 0.3,
+          "comment": "min: 0.0, max: 0.8, default: 0.3, 꼬리 끝 최소 두께 비율"
+        },
+        {
+          "name": "uFeather",
+          "type": "float",
+          "value": 0.8,
+          "isCustom": true,
+          "minValue": 0.2,
+          "maxValue": 1.5,
+          "defaultValue": 0.8,
+          "comment": "min: 0.2, max: 1.5, default: 0.8, 가장자리 부드러움"
+        },
+        {
+          "name": "uTailFadePow",
+          "type": "float",
+          "value": 3.4,
+          "isCustom": true,
+          "minValue": 0.5,
+          "maxValue": 4,
+          "defaultValue": 3.4,
+          "comment": "min: 0.5, max: 4.0, default: 3.4, 꼬리 밝기 감소 곡률"
+        },
+        {
+          "name": "u2Color1",
+          "type": "vec3",
+          "value": [
+            0.9,
+            1,
+            0.5
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.9,
+            1,
+            0.5
+          ],
+          "comment": "min: [0.0, max: [1.0, default: [0.9, 1.0, 0.5], 2번 그라데이션 1 (쿨 톤 권장)"
+        },
+        {
+          "name": "u2Color2",
+          "type": "vec3",
+          "value": [
+            0.7,
+            1,
+            0.6
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.7,
+            1,
+            0.6
+          ],
+          "comment": "min: [0.0, max: [1.0, default: [0.7, 1.0, 0.6], 2번 그라데이션 2"
+        },
+        {
+          "name": "u2Color3",
+          "type": "vec3",
+          "value": [
+            0.7,
+            1,
+            0.5
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.7,
+            1,
+            0.5
+          ],
+          "comment": "min: [0.0, max: [1.0, default: [0.7, 1.0, 0.5], 2번 그라데이션 3"
+        },
+        {
+          "name": "u2Color4",
+          "type": "vec3",
+          "value": [
+            0.5,
+            0.9,
+            0.9
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.5,
+            0.9,
+            0.9
+          ],
+          "comment": "min: [0.0, max: [1.0, default: [0.5, 0.9, 0.9], 2번 그라데이션 4(하이라이트)"
+        },
+        {
+          "name": "u2Alpha",
+          "type": "float",
+          "value": 0.9,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 0.9,
+          "comment": "min: 0.0, max: 1.0, default: 0.9, 두 번째 꼬리 알파(강도)"
+        }
+      ],
+      "channels": [
+        {
+          "id": 0,
+          "url": null
+        }
+      ],
+      "isBlur": false,
+      "radiusX": 0,
+      "radiusY": 0
+    },
+    {
+      "id": 2,
+      "enabled": true,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nuniform float radiusX; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nuniform float radiusY; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nint uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvec4 main(vec2 fragCoord)\n{\n\n    // Y 방향 반전\n    vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(radiusX,radiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (radiusX+radiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = composable.eval(sampleUV * iResolution.xy);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \nreturn vec4(result.rgb * uAlpha, result.a * uAlpha);\n\n}",
+      "webglShaderCode": "int uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\n\nuniform float radiusX; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nuniform float radiusY; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\n\n\n// CLAMP 모드 구현\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\n// 가우시안 가중치 계산\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvoid mainImage( out vec4 fragColor, in vec2 fragCoord )\n{\n   // Y 방향 반전\n   vec2 flippedCoord = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n   vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(radiusX,radiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (radiusX+radiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = texture(iChannel0, sampleUV);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \n   fragColor = vec4(result.rgb * uAlpha, result.a * uAlpha);\n}\n",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "radiusX",
+          "type": "float",
+          "value": 0.03,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)"
+        },
+        {
+          "name": "radiusY",
+          "type": "float",
+          "value": 0.03,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)"
+        }
+      ],
+      "channels": [],
+      "isBlur": true,
+      "radiusX": 0.18,
+      "radiusY": 0.18
+    },
+    {
+      "id": 3,
+      "enabled": false,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nvec4 main(vec2 fragCoord)\n{\n\n    vec2 uv = fragCoord / iResolution.xy;\nreturn composable.eval(uv * iResolution.xy);\n\n}",
+      "webglShaderCode": "void mainImage(out vec4 fragColor, in vec2 fragCoord) {\n    vec2 uv = fragCoord / iResolution.xy;\n    fragColor = texture(iChannel0, uv);\n}",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "radiusX",
+          "type": "float",
+          "value": 0.03,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": ""
+        },
+        {
+          "name": "radiusY",
+          "type": "float",
+          "value": 0.03,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": ""
+        }
+      ],
+      "channels": [],
+      "isBlur": true,
+      "radiusX": 0.18,
+      "radiusY": 0.18
+    },
+    {
+      "id": 4,
+      "enabled": false,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nvec4 main(vec2 fragCoord)\n{\n\n    vec2 uv = fragCoord / iResolution.xy;\nreturn composable.eval(uv * iResolution.xy);\n\n}",
+      "webglShaderCode": "void mainImage(out vec4 fragColor, in vec2 fragCoord) {\n    vec2 uv = fragCoord / iResolution.xy;\n    fragColor = texture(iChannel0, uv);\n}",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        }
+      ],
+      "channels": [],
+      "isBlur": false,
+      "radiusX": 0,
+      "radiusY": 0
+    }
+  ],
+  "globalSettings": {
+    "canvasWidth": 320,
+    "canvasHeight": 320,
+    "backgroundImageOpacity": 0.5,
+    "backgroundImageFit": "cover"
+  },
+  "frameRate": 60,
+  "stopAfterDelay": 600000,
+  "needStopAfterInitAnimation": false,
+  "needStopAfterDelay": false,
+  "needInitAnimation": false,
+  "initAnimationDuration": 1,
+  "stopAnimationDuration": 3000,
+  "category": "Multi-Shader",
+  "description": "Multi-shader pipeline project",
+  "sceneName": "Main Scene",
+  "projectName": "agsl_now_bar_squircle",
+  "exportedAt": "2025-11-03T20:10:57.741Z",
+  "originalProjectPath": "/Users/bdhwan/git/samsung-git/agsl_now_bar_bg/shader-project/agsl_now_bar_squircle/agsl_layer.json"
+}

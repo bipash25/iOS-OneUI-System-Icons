@@ -1,0 +1,17 @@
+{
+  "com.samsung.android.battery.search": [
+    {
+      "com.samsung.android.settings.intelligence.TAG_RECOMMENDED": [
+        "top_level_battery"
+      ]
+    },
+    {
+      "com.samsung.android.settings.intelligence.TAG_BATTERY_TROUBLE": [
+        "top_level_battery",
+        "key_battery_main_battery_protection",
+        "key_battery_main_saving_power_mode",
+        "key_adaptive_power_saving"
+      ]
+    }
+  ]
+}

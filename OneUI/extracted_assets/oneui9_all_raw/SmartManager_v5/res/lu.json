@@ -1,0 +1,19 @@
+{
+  "com.samsung.android.devicecare.search": [
+    {
+      "com.samsung.android.settings.intelligence.TAG_PERFORMANCE": [
+        "title_storage",
+        "title_ram",
+        "key_battery_advanced_menu_perf_opt_mode",
+        "title_auto_care"
+      ]
+    },
+    {
+      "com.samsung.android.settings.intelligence.TAG_DEVICE_TROUBLE": [
+        "title_diagnostics",
+        "title_auto_care",
+        "title_ram"
+      ]
+    }
+  ]
+}

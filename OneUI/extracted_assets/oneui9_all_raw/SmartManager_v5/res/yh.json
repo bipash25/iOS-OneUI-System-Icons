@@ -1,0 +1,19 @@
+{
+  "com.samsung.android.battery.search": [
+    {
+      "com.samsung.android.settings.intelligence.TAG_RECOMMENDED": [
+        "top_level_battery"
+      ]
+    },
+    {
+      "com.samsung.android.settings.intelligence.TAG_BATTERY_TROUBLE": [
+        "top_level_battery"
+      ]
+    },
+    {
+      "com.samsung.android.settings.intelligence.TAG_BRAND_NEW": [
+        "top_level_battery"
+      ]
+    }
+  ]
+}

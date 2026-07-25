@@ -1,0 +1,356 @@
+{
+  "id": "a22d5660-bc8e-4216-8c66-20e2d314f05f",
+  "name": "media_album_lighting",
+  "type": "canvas",
+  "zIndex": 1,
+  "visible": true,
+  "shaders": [
+    {
+      "id": 1,
+      "enabled": true,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nuniform float animationProgress; // min: 0.0, max: 1.0, default: 1.0, 애니메이션 진행도\nuniform float bloomIntensity;    // min: 0.0, max: 3.0, default: 1.7, 블룸 강도\nuniform float baseCircleSize;    // min: 0.1, max: 1.0, default: 0.5, 기본 원 크기\nuniform vec3 primaryColor;       // min: [0.0, 0.0, 0.0], max: [1.0, 1.0, 1.0], default: [0.2, 0.3, 0.9], 주요 컬러 (청록)\nuniform vec3 secondaryColor;     // min: [0.0, 0.0, 0.0], max: [1.0, 1.0, 1.0], default: [1.0, 0.4, 0.8], 보조 컬러 (보라)\nuniform vec3 accentColor;        // min: [0.0, 0.0, 0.0], max: [1.0, 1.0, 1.0], default: [0.4, 0.9, 0.6], 강조 컬러 (연두)\nuniform float overlayAlpha;      // min: 0.0, max: 1.0, default: 0.5, 전체 오버레이 알파값\nuniform float circleOpacity;     // min: 0.0, max: 1.0, default: 0.5, 원형 패턴 투명도\nuniform float softness;          // min: 0.01, max: 0.3, default: 0.2, 원 가장자리 부드러움\nuniform float moveSpeed;         // min: 1.0, max: 50.0, default: 10.0, 원들의 움직임 속도\nuniform float sizeVariation;     // min: 0.0, max: 0.8, default: 0.4, 크기 변화 정도\nuniform float uAlpha;            // min: 0.0, max: 1.0, default: 1.0, 최종 출력 알파\nfloat hash21(vec2 p) {\n    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nvec3 rand3(vec2 p) {\n    return vec3(\n        hash21(p + vec2(0.0, 0.0)),\n        hash21(p + vec2(17.0, 31.0)),\n        hash21(p + vec2(43.0, 97.0))\n    );\n}\n\nvec4 main(vec2 fragCoord)\n{\n\n    // Y 방향 반전\n    vec2 uv = fragCoord / iResolution.xy;\n    \n    vec2 p = -1.0 + 2.0 * uv;\n    p.x *= iResolution.x / iResolution.y;\n    \n    vec3 color = vec3(0.0);\n    float totalAlpha = 0.0;\n    \n    float t = iTime * max(moveSpeed, 0.0001);\n    \n    for (int i = 0; i < 10; i++) {\n        float fi = float(i);\n        float pha = sin(fi * 546.13 + 1.0) * 0.5 + 0.5;\n        float siz = pow(sin(fi * 651.74 + 5.0) * 0.5 + 0.8, 4.0);\n        float pox = sin(fi * 321.55 + 4.1) * (iResolution.x / iResolution.y);\n        \n        float rad = (1.0 + 0.5 * siz + sin(t / 6.0 + pha * 500.0 + siz) / 20.0) \n                   * mix(0.9, 1.1, clamp(baseCircleSize, 0.0, 1.0));\n        \n        vec2 pos = vec2(\n            pox + sin(t / 10.0 + pha + siz),\n            -1.0 - rad + (2.33 + 2.0 * rad) * mod(pha + 0.1 * (t / 5.0) * (0.2 + 0.877 * siz), 1.0)\n        );\n        \n        float dis = length(p - pos);\n\n        // -----------------------------\n        // 3가지 색상을 인덱스에 따라 믹스\n        // -----------------------------\n        float colorPhase = fract(fi * 0.333);\n        vec3 col;\n        if (colorPhase < 0.333) {\n            col = mix(primaryColor, secondaryColor, colorPhase * 3.0);\n        } else if (colorPhase < 0.666) {\n            col = mix(secondaryColor, accentColor, (colorPhase - 0.333) * 3.0);\n        } else {\n            col = mix(accentColor, primaryColor, (colorPhase - 0.666) * 3.0);\n        }\n        \n        // --------------------------------------------------\n        // 부드러운 radial 그라디언트 + 디더링으로 밴딩 제거\n        // --------------------------------------------------\n        float disNorm = dis / rad;\n        \n        // 기본 부드러운 그라디언트 (중심에서 가장자리로 감소)\n        float f = 1.0 - disNorm * disNorm;\n        f = clamp(f, 0.0, 1.0);\n\n        // 밝은 영역에서 밴딩 줄이기 위한 디더링 노이즈\n        // (각 원, 시간에 따라 조금씩 다른 패턴)\n        float dither =\n            (hash21(fragCoord + vec2(t * 13.17, fi * 7.31)) - 0.5)\n            * 0.04; // 너무 세면 노이즈 느낌 나므로 약하게\n        // 밝은 영역(하이라이트)에서 더 강하게\n        dither *= (0.3 + 0.7 * f);\n        \n        f = clamp(f + dither, 0.0, 1.0);\n\n        // softness를 실제로 사용해서 edge 두께 조절\n        float baseEdge = 0.0095;\n        float edgeWidth = baseEdge + softness * 0.25; // softness에 따라 두꺼워짐\n        float edgeInner = rad * edgeWidth;\n\n        float edgeMask = 1.0 - smoothstep(edgeInner, rad, dis);\n        \n        float circleAlpha = edgeMask * f * max(circleOpacity, 0.0);\n        \n        color += col * circleAlpha;\n        totalAlpha += circleAlpha;\n    }\n    \n    vec3 noiseCol = rand3(fragCoord + vec2(floor(t * 60.0), 0.0));\n    \n    vec3 finalRGB = color * 3.0 - noiseCol * 0.05;\n    finalRGB *= clamp(overlayAlpha, 0.0, 1.0);\n\n    // (선택) 감마 보정으로 하이라이트 밴딩을 더 줄이고 싶으면 주석 해제\n    finalRGB = pow(max(finalRGB, 0.0), vec3(1.0 / 2.2));\n    \n    float finalAlpha = clamp(totalAlpha * overlayAlpha * uAlpha, 0.0, 1.0);\n    \nreturn vec4(finalRGB, finalAlpha);\n\n}",
+      "webglShaderCode": "uniform float animationProgress; // min: 0.0, max: 1.0, default: 1.0, 애니메이션 진행도\nuniform float bloomIntensity;    // min: 0.0, max: 3.0, default: 1.7, 블룸 강도\nuniform float baseCircleSize;    // min: 0.1, max: 1.0, default: 0.5, 기본 원 크기\nuniform vec3 primaryColor;       // min: [0.0, 0.0, 0.0], max: [1.0, 1.0, 1.0], default: [0.2, 0.3, 0.9], 주요 컬러 (청록)\nuniform vec3 secondaryColor;     // min: [0.0, 0.0, 0.0], max: [1.0, 1.0, 1.0], default: [1.0, 0.4, 0.8], 보조 컬러 (보라)\nuniform vec3 accentColor;        // min: [0.0, 0.0, 0.0], max: [1.0, 1.0, 1.0], default: [0.4, 0.9, 0.6], 강조 컬러 (연두)\nuniform float overlayAlpha;      // min: 0.0, max: 1.0, default: 0.5, 전체 오버레이 알파값\nuniform float circleOpacity;     // min: 0.0, max: 1.0, default: 0.5, 원형 패턴 투명도\nuniform float softness;          // min: 0.01, max: 0.3, default: 0.2, 원 가장자리 부드러움\nuniform float moveSpeed;         // min: 1.0, max: 50.0, default: 10.0, 원들의 움직임 속도\nuniform float sizeVariation;     // min: 0.0, max: 0.8, default: 0.4, 크기 변화 정도\nuniform float uAlpha;            // min: 0.0, max: 1.0, default: 1.0, 최종 출력 알파\n\nfloat hash21(vec2 p) {\n    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);\n}\n\nvec3 rand3(vec2 p) {\n    return vec3(\n        hash21(p + vec2(0.0, 0.0)),\n        hash21(p + vec2(17.0, 31.0)),\n        hash21(p + vec2(43.0, 97.0))\n    );\n}\n\nvoid mainImage( out vec4 fragColor, in vec2 fragCoord )\n{\n    vec2 flippedCoord = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n    vec2 uv = flippedCoord / iResolution.xy;\n    \n    vec2 p = -1.0 + 2.0 * uv;\n    p.x *= iResolution.x / iResolution.y;\n    \n    vec3 color = vec3(0.0);\n    float totalAlpha = 0.0;\n    \n    float t = iTime * max(moveSpeed, 0.0001);\n    \n    for (int i = 0; i < 10; i++) {\n        float fi = float(i);\n        float pha = sin(fi * 546.13 + 1.0) * 0.5 + 0.5;\n        float siz = pow(sin(fi * 651.74 + 5.0) * 0.5 + 0.8, 4.0);\n        float pox = sin(fi * 321.55 + 4.1) * (iResolution.x / iResolution.y);\n        \n        float rad = (1.0 + 0.5 * siz + sin(t / 6.0 + pha * 500.0 + siz) / 20.0) \n                   * mix(0.9, 1.1, clamp(baseCircleSize, 0.0, 1.0));\n        \n        vec2 pos = vec2(\n            pox + sin(t / 10.0 + pha + siz),\n            -1.0 - rad + (2.33 + 2.0 * rad) * mod(pha + 0.1 * (t / 5.0) * (0.2 + 0.877 * siz), 1.0)\n        );\n        \n        float dis = length(p - pos);\n\n        // -----------------------------\n        // 3가지 색상을 인덱스에 따라 믹스\n        // -----------------------------\n        float colorPhase = fract(fi * 0.333);\n        vec3 col;\n        if (colorPhase < 0.333) {\n            col = mix(primaryColor, secondaryColor, colorPhase * 3.0);\n        } else if (colorPhase < 0.666) {\n            col = mix(secondaryColor, accentColor, (colorPhase - 0.333) * 3.0);\n        } else {\n            col = mix(accentColor, primaryColor, (colorPhase - 0.666) * 3.0);\n        }\n        \n        // --------------------------------------------------\n        // 부드러운 radial 그라디언트 + 디더링으로 밴딩 제거\n        // --------------------------------------------------\n        float disNorm = dis / rad;\n        \n        // 기본 부드러운 그라디언트 (중심에서 가장자리로 감소)\n        float f = 1.0 - disNorm * disNorm;\n        f = clamp(f, 0.0, 1.0);\n\n        // 밝은 영역에서 밴딩 줄이기 위한 디더링 노이즈\n        // (각 원, 시간에 따라 조금씩 다른 패턴)\n        float dither =\n            (hash21(fragCoord + vec2(t * 13.17, fi * 7.31)) - 0.5)\n            * 0.04; // 너무 세면 노이즈 느낌 나므로 약하게\n        // 밝은 영역(하이라이트)에서 더 강하게\n        dither *= (0.3 + 0.7 * f);\n        \n        f = clamp(f + dither, 0.0, 1.0);\n\n        // softness를 실제로 사용해서 edge 두께 조절\n        float baseEdge = 0.0095;\n        float edgeWidth = baseEdge + softness * 0.25; // softness에 따라 두꺼워짐\n        float edgeInner = rad * edgeWidth;\n\n        float edgeMask = 1.0 - smoothstep(edgeInner, rad, dis);\n        \n        float circleAlpha = edgeMask * f * max(circleOpacity, 0.0);\n        \n        color += col * circleAlpha;\n        totalAlpha += circleAlpha;\n    }\n    \n    vec3 noiseCol = rand3(fragCoord + vec2(floor(t * 60.0), 0.0));\n    \n    vec3 finalRGB = color * 3.0 - noiseCol * 0.05;\n    finalRGB *= clamp(overlayAlpha, 0.0, 1.0);\n\n    // (선택) 감마 보정으로 하이라이트 밴딩을 더 줄이고 싶으면 주석 해제\n    finalRGB = pow(max(finalRGB, 0.0), vec3(1.0 / 2.2));\n    \n    float finalAlpha = clamp(totalAlpha * overlayAlpha * uAlpha, 0.0, 1.0);\n    \n    fragColor = vec4(finalRGB, finalAlpha);\n}",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "animationProgress",
+          "type": "float",
+          "value": 1,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 1,
+          "comment": "min: 0.0, max: 1.0, default: 1.0, 애니메이션 진행도"
+        },
+        {
+          "name": "bloomIntensity",
+          "type": "float",
+          "value": 1.7,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 3,
+          "defaultValue": 1.7,
+          "comment": "min: 0.0, max: 3.0, default: 1.7, 블룸 강도"
+        },
+        {
+          "name": "baseCircleSize",
+          "type": "float",
+          "value": 0.1,
+          "isCustom": true,
+          "minValue": 0.1,
+          "maxValue": 1,
+          "defaultValue": 0.5,
+          "comment": "min: 0.1, max: 1.0, default: 0.5, 기본 원 크기"
+        },
+        {
+          "name": "primaryColor",
+          "type": "vec3",
+          "value": [
+            0.2,
+            0.3,
+            0
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.2,
+            0.3,
+            0.9
+          ],
+          "comment": "min: [0.0, 0.0, 0.0], max: [1.0, 1.0, 1.0], default: [0.2, 0.3, 0.9], 주요 컬러 (청록)"
+        },
+        {
+          "name": "secondaryColor",
+          "type": "vec3",
+          "value": [
+            1,
+            0.4,
+            0.8
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            1,
+            0.4,
+            0.8
+          ],
+          "comment": "min: [0.0, 0.0, 0.0], max: [1.0, 1.0, 1.0], default: [1.0, 0.4, 0.8], 보조 컬러 (보라)"
+        },
+        {
+          "name": "accentColor",
+          "type": "vec3",
+          "value": [
+            0.4,
+            0.9,
+            0.6
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.4,
+            0.9,
+            0.6
+          ],
+          "comment": "min: [0.0, 0.0, 0.0], max: [1.0, 1.0, 1.0], default: [0.4, 0.9, 0.6], 강조 컬러 (연두)"
+        },
+        {
+          "name": "overlayAlpha",
+          "type": "float",
+          "value": 0.5,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 0.5,
+          "comment": "min: 0.0, max: 1.0, default: 0.5, 전체 오버레이 알파값"
+        },
+        {
+          "name": "circleOpacity",
+          "type": "float",
+          "value": 0.3,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 0.5,
+          "comment": "min: 0.0, max: 1.0, default: 0.5, 원형 패턴 투명도"
+        },
+        {
+          "name": "softness",
+          "type": "float",
+          "value": 0.2,
+          "isCustom": true,
+          "minValue": 0.01,
+          "maxValue": 0.3,
+          "defaultValue": 0.2,
+          "comment": "min: 0.01, max: 0.3, default: 0.2, 원 가장자리 부드러움"
+        },
+        {
+          "name": "moveSpeed",
+          "type": "float",
+          "value": 10,
+          "isCustom": true,
+          "minValue": 1,
+          "maxValue": 50,
+          "defaultValue": 10,
+          "comment": "min: 1.0, max: 50.0, default: 10.0, 원들의 움직임 속도"
+        },
+        {
+          "name": "sizeVariation",
+          "type": "float",
+          "value": 0.4,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.8,
+          "defaultValue": 0.4,
+          "comment": "min: 0.0, max: 0.8, default: 0.4, 크기 변화 정도"
+        },
+        {
+          "name": "uAlpha",
+          "type": "float",
+          "value": 1,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 1,
+          "comment": "min: 0.0, max: 1.0, default: 1.0, 최종 출력 알파"
+        }
+      ],
+      "channels": [
+        {
+          "id": 0,
+          "url": "assets/album_10.jpg"
+        }
+      ],
+      "isBlur": false,
+      "radiusX": 0,
+      "radiusY": 0
+    },
+    {
+      "id": 2,
+      "enabled": true,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nuniform float radiusX; // min: 0.0, max: 0.1, default: 0.05 = 화면의 5%)\nuniform float radiusY; // min: 0.0, max: 0.1, default: 0.05 = 화면의 5%)\nint uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvec4 main(vec2 fragCoord)\n{\n\n    // Y 방향 반전\n    vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(radiusX,radiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (radiusX+radiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = composable.eval(sampleUV * iResolution.xy);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \nreturn vec4(result.rgb * uAlpha, result.a * uAlpha);\n\n}",
+      "webglShaderCode": "int uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\n\nuniform float radiusX; // min: 0.0, max: 0.1, default: 0.05 = 화면의 5%)\nuniform float radiusY; // min: 0.0, max: 0.1, default: 0.05 = 화면의 5%)\n\n\n// CLAMP 모드 구현\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\n// 가우시안 가중치 계산\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvoid mainImage( out vec4 fragColor, in vec2 fragCoord )\n{\n   // Y 방향 반전\n   vec2 flippedCoord = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n   vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(radiusX,radiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (radiusX+radiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = texture(iChannel0, sampleUV);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \n   fragColor = vec4(result.rgb * uAlpha, result.a * uAlpha);\n}\n",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "radiusX",
+          "type": "float",
+          "value": 0.05,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0.05,
+          "comment": "min: 0.0, max: 0.1, default: 0.05 = 화면의 5%)"
+        },
+        {
+          "name": "radiusY",
+          "type": "float",
+          "value": 0.05,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0.05,
+          "comment": "min: 0.0, max: 0.1, default: 0.05 = 화면의 5%)"
+        }
+      ],
+      "channels": [],
+      "isBlur": true,
+      "radiusX": 0.30000000000000004,
+      "radiusY": 0.30000000000000004
+    },
+    {
+      "id": 3,
+      "enabled": false,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nuniform float radiusX; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nuniform float radiusY; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nint uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvec4 main(vec2 fragCoord)\n{\n\n    // Y 방향 반전\n    vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(radiusX,radiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (radiusX+radiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = composable.eval(sampleUV * iResolution.xy);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \nreturn vec4(result.rgb * uAlpha, result.a * uAlpha);\n\n}",
+      "webglShaderCode": "int uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\n\nuniform float radiusX; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nuniform float radiusY; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\n\n\n// CLAMP 모드 구현\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\n// 가우시안 가중치 계산\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvoid mainImage( out vec4 fragColor, in vec2 fragCoord )\n{\n   // Y 방향 반전\n   vec2 flippedCoord = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n   vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(radiusX,radiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (radiusX+radiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = texture(iChannel0, sampleUV);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \n   fragColor = vec4(result.rgb * uAlpha, result.a * uAlpha);\n}\n",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "radiusX",
+          "type": "float",
+          "value": 0.05,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)"
+        },
+        {
+          "name": "radiusY",
+          "type": "float",
+          "value": 0.05,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)"
+        }
+      ],
+      "channels": [],
+      "isBlur": true,
+      "radiusX": 0.30000000000000004,
+      "radiusY": 0.30000000000000004
+    },
+    {
+      "id": 4,
+      "enabled": false,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nuniform float radiusX; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nuniform float radiusY; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nint uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvec4 main(vec2 fragCoord)\n{\n\n    // Y 방향 반전\n    vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(radiusX,radiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (radiusX+radiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = composable.eval(sampleUV * iResolution.xy);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \nreturn vec4(result.rgb * uAlpha, result.a * uAlpha);\n\n}",
+      "webglShaderCode": "int uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\n\nuniform float radiusX; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nuniform float radiusY; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\n\n\n// CLAMP 모드 구현\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\n// 가우시안 가중치 계산\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvoid mainImage( out vec4 fragColor, in vec2 fragCoord )\n{\n   // Y 방향 반전\n   vec2 flippedCoord = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n   vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(radiusX,radiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (radiusX+radiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = texture(iChannel0, sampleUV);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \n   fragColor = vec4(result.rgb * uAlpha, result.a * uAlpha);\n}\n",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "radiusX",
+          "type": "float",
+          "value": 0.082,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)"
+        },
+        {
+          "name": "radiusY",
+          "type": "float",
+          "value": 0.086,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)"
+        }
+      ],
+      "channels": [],
+      "isBlur": true,
+      "radiusX": 0.492,
+      "radiusY": 0.516
+    }
+  ],
+  "globalSettings": {
+    "canvasWidth": 320,
+    "canvasHeight": 320,
+    "backgroundImageOpacity": 0.5,
+    "backgroundImageFit": "cover"
+  },
+  "assetManifest": [
+    "assets/album_10.jpg"
+  ],
+  "frameRate": 60,
+  "stopAfterDelay": 600000,
+  "needStopAfterInitAnimation": false,
+  "needStopAfterDelay": false,
+  "needInitAnimation": false,
+  "initAnimationDuration": 1,
+  "stopAnimationDuration": 3000,
+  "category": "Multi-Shader",
+  "description": "Multi-shader pipeline project",
+  "sceneName": "Main Scene",
+  "projectName": "media_album_lighting",
+  "exportedAt": "2025-11-20T01:05:28.421Z",
+  "originalProjectPath": "/Users/bdhwan/git/samsung-git/media_art_share/shader-project/media_album_lighting/agsl_layer.json"
+}

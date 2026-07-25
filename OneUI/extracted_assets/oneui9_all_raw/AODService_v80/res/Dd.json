@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "oldVersion": 90000,
+      "newVersion": 100000,
+      "palette": [
+        {"oldIndex":2, "newIndex":0},
+        {"oldIndex":3, "newIndex":2},
+        {"oldIndex":4, "newIndex":3},
+        {"oldIndex":5, "newIndex":4},
+        {"oldIndex":6, "newIndex":5},
+        {"oldIndex":7, "newIndex":6},
+        {"oldIndex":8, "newIndex":7},
+        {"oldIndex":9, "newIndex":8},
+        {"oldIndex":10, "newIndex":9},
+        {"oldIndex":11, "newIndex":10},
+        {"oldIndex":12, "newIndex":11}
+      ]
+    }
+  ]
+}
+

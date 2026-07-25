@@ -1,0 +1,380 @@
+{
+  "id": "1761846878840",
+  "name": "media_album_masking",
+  "type": "canvas",
+  "zIndex": 1,
+  "visible": true,
+  "shaders": [
+    {
+      "id": 1,
+      "enabled": true,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nuniform float uAnimationProgress; // min: 0.0, max: 1.0, default: 0.0, 전체 애니메이션 진행도 (0~1)\nuniform float uCircle1MinRadius; // min: 0.0, max: 1.0, default: 0.1, 첫 번째 원 최소 반지름 (음수: 역방향)\nuniform float uCircle2MinRadius; // min: 0.0, max: 1.0, default: 0.0, 두 번째 원 최소 반지름 (음수: 역방향)\nuniform float uCircle3MinRadius; // min: 0.0, max: 1.0, default: 0.1, 세 번째 원 최소 반지름 (음수: 역방향)\nuniform float uCircle1MaxRadius; // min: 0.05, max: 2.0, default: 0.5, 첫 번째 원 최대 반지름\nuniform float uCircle2MaxRadius; // min: 0.05, max: 2.0, default: 0.5, 두 번째 원 최대 반지름\nuniform float uCircle3MaxRadius; // min: 0.05, max: 2.0, default: 1.5, 세 번째 원 최대 반지름\nuniform vec2 uCircle1Pos; // min: [0.0, 0.0], max: [1.0, 1.0], default: [0.2, 0.3], 첫 번째 원 기본 위치\nuniform vec2 uCircle2Pos; // min: [0.0, 0.0], max: [1.0, 1.0], default: [0.8, 0.2], 두 번째 원 기본 위치\nuniform vec2 uCircle3Pos; // min: [0.0, 0.0], max: [1.0, 1.0], default: [0.5, 0.9], 세 번째 원 기본 위치\nuniform float uRandomOffset; // min: 0.0, max: 1.0, default: 0.1, 원들의 위치 랜덤 오프셋 시드값\nuniform float uSmoothness; // min: 0.0, max: 0.5, default: 0.5, 원의 가장자리 부드러움\nuniform float uCircle1StartDelay; // min: 0.0, max: 5.0, default: 0.0, 첫 번째 원 시작 지연시간 (초)\nuniform float uCircle2StartDelay; // min: 0.0, max: 5.0, default: 2.6, 두 번째 원 시작 지연시간 (초)\nuniform float uCircle3StartDelay; // min: 0.0, max: 5.0, default: 2.4, 세 번째 원 시작 지연시간 (초)\nuniform float uCircle1Duration; // min: 0.1, max: 10.0, default: 8.6, 첫 번째 원 애니메이션 지속시간 (초)\nuniform float uCircle2Duration; // min: 0.1, max: 10.0, default: 9.0, 두 번째 원 애니메이션 지속시간 (초)\nuniform float uCircle3Duration; // min: 0.1, max: 10.0, default: 10.0, 세 번째 원 애니메이션 지속시간 (초)\nuniform float uHideImage; // min: 0.0, max: 1.0, default: 0.0, 0: 이미지 마스킹\nfloat random(float seed) {\n    return fract(sin(seed * 12.9898 + 4.1414) * 43758.5453);\n}\n\nfloat random2(float seed) {\n    return fract(sin(seed * 78.233 + 15.789) * 31416.9265);\n}\n\nvec2 getRandomOffset(float seed, float circleIndex) {\n    float baseSeed = seed * 1000.0;\n    float seedX = baseSeed + circleIndex * 123.456 + 789.012;\n    float seedY = baseSeed + circleIndex * 456.789 + 321.654;\n    \n    float r1 = random(seedX) * 2.0 - 1.0;\n    float r2 = random2(seedY) * 2.0 - 1.0;\n    \n    return vec2(r1, r2) * 0.3;\n}\n\nfloat easeOut(float t) {\n    t = clamp(t, 0.0, 1.0);\n    return 1.0 - (1.0 - t)*(1.0 - t);\n}\n\nvec4 main(vec2 fragCoord)\n{\n\n    // Y 방향 반전\n    vec2 uv = fragCoord / iResolution.xy;\n    \n    vec4 texColor = composable.eval(uv * iResolution.xy);\n\n    float totalLength = max(max(uCircle1StartDelay + uCircle1Duration, uCircle2StartDelay + uCircle2Duration), uCircle3StartDelay + uCircle3Duration);\n\n    float circle1Start = uCircle1StartDelay / totalLength;\n    float circle1End   = (uCircle1StartDelay + uCircle1Duration) / totalLength;\n    float circle2Start = uCircle2StartDelay / totalLength;\n    float circle2End   = (uCircle2StartDelay + uCircle2Duration) / totalLength;\n    float circle3Start = uCircle3StartDelay / totalLength;\n    float circle3End   = (uCircle3StartDelay + uCircle3Duration) / totalLength;\n\n    float rawProgress1 = clamp((uAnimationProgress - circle1Start) / (circle1End - circle1Start), 0.0, 1.0);\n    float rawProgress2 = clamp((uAnimationProgress - circle2Start) / (circle2End - circle2Start), 0.0, 1.0);\n    float rawProgress3 = clamp((uAnimationProgress - circle3Start) / (circle3End - circle3Start), 0.0, 1.0);\n\n    float progress1 = easeOut(rawProgress1);\n    float progress2 = easeOut(rawProgress2);\n    float progress3 = easeOut(rawProgress3);\n\n    float EPS = 0.0001;\n\n    float radius1 = max(mix(uCircle1MinRadius, uCircle1MaxRadius, progress1), EPS);\n    float radius2 = max(mix(uCircle2MinRadius, uCircle2MaxRadius, progress2), EPS);\n    float radius3 = max(mix(uCircle3MinRadius, uCircle3MaxRadius, progress3), EPS);\n\n    vec2 randomOffset1 = getRandomOffset(uRandomOffset, 1.0);\n    vec2 randomOffset2 = getRandomOffset(uRandomOffset, 2.0);\n    vec2 randomOffset3 = getRandomOffset(uRandomOffset, 3.0);\n    \n    vec2 circle1Pos = clamp(uCircle1Pos + randomOffset1, vec2(0.0), vec2(1.0));\n    vec2 circle2Pos = clamp(uCircle2Pos + randomOffset2, vec2(0.0), vec2(1.0));\n    vec2 circle3Pos = clamp(uCircle3Pos + randomOffset3, vec2(0.0), vec2(1.0));\n\n    float dist1 = distance(uv, circle1Pos);\n    float dist2 = distance(uv, circle2Pos);\n    float dist3 = distance(uv, circle3Pos);\n\n    float circle1, circle2, circle3;\n\n    if (uSmoothness > 0.0) {\n        circle1 = 1.0 - smoothstep(radius1 - uSmoothness, radius1 + uSmoothness, dist1);\n        circle2 = 1.0 - smoothstep(radius2 - uSmoothness, radius2 + uSmoothness, dist2);\n        circle3 = 1.0 - smoothstep(radius3 - uSmoothness, radius3 + uSmoothness, dist3);\n    } else {\n        circle1 = step(dist1, radius1);\n        circle2 = step(dist2, radius2);\n        circle3 = step(dist3, radius3);\n    }\n\n    circle1 *= step(0.01, rawProgress1);\n    circle2 *= step(0.01, rawProgress2);\n    circle3 *= step(0.01, rawProgress3);\n\n    float finalMask = 1.0 - (1.0 - circle1) * (1.0 - circle2) * (1.0 - circle3);\n    \n    finalMask *= uAnimationProgress;\n    \n    if (uHideImage < 0.5) {\n        vec3 premultipliedRGB = texColor.rgb * finalMask;\n        return vec4(premultipliedRGB, finalMask);\n    } else {\n        float invertedMask = 1.0 - finalMask;\n        return vec4(vec3(invertedMask), 1.0);\n    }\n\n}",
+      "webglShaderCode": "uniform float uAnimationProgress; // min: 0.0, max: 1.0, default: 0.0, 전체 애니메이션 진행도 (0~1)\nuniform float uCircle1MinRadius; // min: 0.0, max: 1.0, default: 0.1, 첫 번째 원 최소 반지름 (음수: 역방향)\nuniform float uCircle2MinRadius; // min: 0.0, max: 1.0, default: 0.0, 두 번째 원 최소 반지름 (음수: 역방향)\nuniform float uCircle3MinRadius; // min: 0.0, max: 1.0, default: 0.1, 세 번째 원 최소 반지름 (음수: 역방향)\nuniform float uCircle1MaxRadius; // min: 0.05, max: 2.0, default: 0.5, 첫 번째 원 최대 반지름\nuniform float uCircle2MaxRadius; // min: 0.05, max: 2.0, default: 0.5, 두 번째 원 최대 반지름\nuniform float uCircle3MaxRadius; // min: 0.05, max: 2.0, default: 1.5, 세 번째 원 최대 반지름\nuniform vec2 uCircle1Pos; // min: [0.0, 0.0], max: [1.0, 1.0], default: [0.2, 0.3], 첫 번째 원 기본 위치\nuniform vec2 uCircle2Pos; // min: [0.0, 0.0], max: [1.0, 1.0], default: [0.8, 0.2], 두 번째 원 기본 위치\nuniform vec2 uCircle3Pos; // min: [0.0, 0.0], max: [1.0, 1.0], default: [0.5, 0.9], 세 번째 원 기본 위치\nuniform float uRandomOffset; // min: 0.0, max: 1.0, default: 0.1, 원들의 위치 랜덤 오프셋 시드값\nuniform float uSmoothness; // min: 0.0, max: 0.5, default: 0.5, 원의 가장자리 부드러움\nuniform float uCircle1StartDelay; // min: 0.0, max: 5.0, default: 0.0, 첫 번째 원 시작 지연시간 (초)\nuniform float uCircle2StartDelay; // min: 0.0, max: 5.0, default: 2.6, 두 번째 원 시작 지연시간 (초)\nuniform float uCircle3StartDelay; // min: 0.0, max: 5.0, default: 2.4, 세 번째 원 시작 지연시간 (초)\nuniform float uCircle1Duration; // min: 0.1, max: 10.0, default: 8.6, 첫 번째 원 애니메이션 지속시간 (초)\nuniform float uCircle2Duration; // min: 0.1, max: 10.0, default: 9.0, 두 번째 원 애니메이션 지속시간 (초)\nuniform float uCircle3Duration; // min: 0.1, max: 10.0, default: 10.0, 세 번째 원 애니메이션 지속시간 (초)\nuniform float uHideImage; // min: 0.0, max: 1.0, default: 0.0, 0: 이미지 마스킹\n\nfloat random(float seed) {\n    return fract(sin(seed * 12.9898 + 4.1414) * 43758.5453);\n}\n\nfloat random2(float seed) {\n    return fract(sin(seed * 78.233 + 15.789) * 31416.9265);\n}\n\nvec2 getRandomOffset(float seed, float circleIndex) {\n    float baseSeed = seed * 1000.0;\n    float seedX = baseSeed + circleIndex * 123.456 + 789.012;\n    float seedY = baseSeed + circleIndex * 456.789 + 321.654;\n    \n    float r1 = random(seedX) * 2.0 - 1.0;\n    float r2 = random2(seedY) * 2.0 - 1.0;\n    \n    return vec2(r1, r2) * 0.3;\n}\n\nfloat easeOut(float t) {\n    t = clamp(t, 0.0, 1.0);\n    return 1.0 - (1.0 - t)*(1.0 - t);\n}\n\nvoid mainImage( out vec4 fragColor, in vec2 fragCoord )\n{\n    vec2 flippedCoord = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n    vec2 uv = flippedCoord / iResolution.xy;\n    \n    vec4 texColor = texture(iChannel0, uv);\n\n    float totalLength = max(max(uCircle1StartDelay + uCircle1Duration, uCircle2StartDelay + uCircle2Duration), uCircle3StartDelay + uCircle3Duration);\n\n    float circle1Start = uCircle1StartDelay / totalLength;\n    float circle1End   = (uCircle1StartDelay + uCircle1Duration) / totalLength;\n    float circle2Start = uCircle2StartDelay / totalLength;\n    float circle2End   = (uCircle2StartDelay + uCircle2Duration) / totalLength;\n    float circle3Start = uCircle3StartDelay / totalLength;\n    float circle3End   = (uCircle3StartDelay + uCircle3Duration) / totalLength;\n\n    float rawProgress1 = clamp((uAnimationProgress - circle1Start) / (circle1End - circle1Start), 0.0, 1.0);\n    float rawProgress2 = clamp((uAnimationProgress - circle2Start) / (circle2End - circle2Start), 0.0, 1.0);\n    float rawProgress3 = clamp((uAnimationProgress - circle3Start) / (circle3End - circle3Start), 0.0, 1.0);\n\n    float progress1 = easeOut(rawProgress1);\n    float progress2 = easeOut(rawProgress2);\n    float progress3 = easeOut(rawProgress3);\n\n    float EPS = 0.0001;\n\n    float radius1 = max(mix(uCircle1MinRadius, uCircle1MaxRadius, progress1), EPS);\n    float radius2 = max(mix(uCircle2MinRadius, uCircle2MaxRadius, progress2), EPS);\n    float radius3 = max(mix(uCircle3MinRadius, uCircle3MaxRadius, progress3), EPS);\n\n    vec2 randomOffset1 = getRandomOffset(uRandomOffset, 1.0);\n    vec2 randomOffset2 = getRandomOffset(uRandomOffset, 2.0);\n    vec2 randomOffset3 = getRandomOffset(uRandomOffset, 3.0);\n    \n    vec2 circle1Pos = clamp(uCircle1Pos + randomOffset1, vec2(0.0), vec2(1.0));\n    vec2 circle2Pos = clamp(uCircle2Pos + randomOffset2, vec2(0.0), vec2(1.0));\n    vec2 circle3Pos = clamp(uCircle3Pos + randomOffset3, vec2(0.0), vec2(1.0));\n\n    float dist1 = distance(uv, circle1Pos);\n    float dist2 = distance(uv, circle2Pos);\n    float dist3 = distance(uv, circle3Pos);\n\n    float circle1, circle2, circle3;\n\n    if (uSmoothness > 0.0) {\n        circle1 = 1.0 - smoothstep(radius1 - uSmoothness, radius1 + uSmoothness, dist1);\n        circle2 = 1.0 - smoothstep(radius2 - uSmoothness, radius2 + uSmoothness, dist2);\n        circle3 = 1.0 - smoothstep(radius3 - uSmoothness, radius3 + uSmoothness, dist3);\n    } else {\n        circle1 = step(dist1, radius1);\n        circle2 = step(dist2, radius2);\n        circle3 = step(dist3, radius3);\n    }\n\n    circle1 *= step(0.01, rawProgress1);\n    circle2 *= step(0.01, rawProgress2);\n    circle3 *= step(0.01, rawProgress3);\n\n    float finalMask = 1.0 - (1.0 - circle1) * (1.0 - circle2) * (1.0 - circle3);\n    \n    finalMask *= uAnimationProgress;\n    \n    if (uHideImage < 0.5) {\n        vec3 premultipliedRGB = texColor.rgb * finalMask;\n        fragColor = vec4(premultipliedRGB, finalMask);\n    } else {\n        float invertedMask = 1.0 - finalMask;\n        fragColor = vec4(vec3(invertedMask), 1.0);\n    }\n}",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "uAnimationProgress",
+          "type": "float",
+          "value": 0,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 1.0, default: 0.0, 전체 애니메이션 진행도 (0~1)"
+        },
+        {
+          "name": "uCircle1MinRadius",
+          "type": "float",
+          "value": 0,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 0.1,
+          "comment": "min: 0.0, max: 1.0, default: 0.1, 첫 번째 원 최소 반지름 (음수: 역방향)"
+        },
+        {
+          "name": "uCircle2MinRadius",
+          "type": "float",
+          "value": 0.05,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 1.0, default: 0.0, 두 번째 원 최소 반지름 (음수: 역방향)"
+        },
+        {
+          "name": "uCircle3MinRadius",
+          "type": "float",
+          "value": 0.09,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 0.1,
+          "comment": "min: 0.0, max: 1.0, default: 0.1, 세 번째 원 최소 반지름 (음수: 역방향)"
+        },
+        {
+          "name": "uCircle1MaxRadius",
+          "type": "float",
+          "value": 0.323,
+          "isCustom": true,
+          "minValue": 0.05,
+          "maxValue": 2,
+          "defaultValue": 0.5,
+          "comment": "min: 0.05, max: 2.0, default: 0.5, 첫 번째 원 최대 반지름"
+        },
+        {
+          "name": "uCircle2MaxRadius",
+          "type": "float",
+          "value": 0.4985,
+          "isCustom": true,
+          "minValue": 0.05,
+          "maxValue": 2,
+          "defaultValue": 0.5,
+          "comment": "min: 0.05, max: 2.0, default: 0.5, 두 번째 원 최대 반지름"
+        },
+        {
+          "name": "uCircle3MaxRadius",
+          "type": "float",
+          "value": 1.4345,
+          "isCustom": true,
+          "minValue": 0.05,
+          "maxValue": 2,
+          "defaultValue": 1.5,
+          "comment": "min: 0.05, max: 2.0, default: 1.5, 세 번째 원 최대 반지름"
+        },
+        {
+          "name": "uCircle1Pos",
+          "type": "vec2",
+          "value": [
+            0.2,
+            0.3
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.2,
+            0.3
+          ],
+          "comment": "min: [0.0, 0.0], max: [1.0, 1.0], default: [0.2, 0.3], 첫 번째 원 기본 위치"
+        },
+        {
+          "name": "uCircle2Pos",
+          "type": "vec2",
+          "value": [
+            0.8,
+            0.2
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.8,
+            0.2
+          ],
+          "comment": "min: [0.0, 0.0], max: [1.0, 1.0], default: [0.8, 0.2], 두 번째 원 기본 위치"
+        },
+        {
+          "name": "uCircle3Pos",
+          "type": "vec2",
+          "value": [
+            0.5,
+            0.9
+          ],
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": [
+            0.5,
+            0.9
+          ],
+          "comment": "min: [0.0, 0.0], max: [1.0, 1.0], default: [0.5, 0.9], 세 번째 원 기본 위치"
+        },
+        {
+          "name": "uRandomOffset",
+          "type": "float",
+          "value": 0.19,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 0.1,
+          "comment": "min: 0.0, max: 1.0, default: 0.1, 원들의 위치 랜덤 오프셋 시드값"
+        },
+        {
+          "name": "uSmoothness",
+          "type": "float",
+          "value": 0.23,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.5,
+          "defaultValue": 0.5,
+          "comment": "min: 0.0, max: 0.5, default: 0.5, 원의 가장자리 부드러움"
+        },
+        {
+          "name": "uCircle1StartDelay",
+          "type": "float",
+          "value": 0.75,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 5,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 5.0, default: 0.0, 첫 번째 원 시작 지연시간 (초)"
+        },
+        {
+          "name": "uCircle2StartDelay",
+          "type": "float",
+          "value": 0,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 5,
+          "defaultValue": 2.6,
+          "comment": "min: 0.0, max: 5.0, default: 2.6, 두 번째 원 시작 지연시간 (초)"
+        },
+        {
+          "name": "uCircle3StartDelay",
+          "type": "float",
+          "value": 3.8,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 5,
+          "defaultValue": 2.4,
+          "comment": "min: 0.0, max: 5.0, default: 2.4, 세 번째 원 시작 지연시간 (초)"
+        },
+        {
+          "name": "uCircle1Duration",
+          "type": "float",
+          "value": 7.822,
+          "isCustom": true,
+          "minValue": 0.1,
+          "maxValue": 10,
+          "defaultValue": 8.6,
+          "comment": "min: 0.1, max: 10.0, default: 8.6, 첫 번째 원 애니메이션 지속시간 (초)"
+        },
+        {
+          "name": "uCircle2Duration",
+          "type": "float",
+          "value": 9.802,
+          "isCustom": true,
+          "minValue": 0.1,
+          "maxValue": 10,
+          "defaultValue": 9,
+          "comment": "min: 0.1, max: 10.0, default: 9.0, 두 번째 원 애니메이션 지속시간 (초)"
+        },
+        {
+          "name": "uCircle3Duration",
+          "type": "float",
+          "value": 9.109,
+          "isCustom": true,
+          "minValue": 0.1,
+          "maxValue": 10,
+          "defaultValue": 10,
+          "comment": "min: 0.1, max: 10.0, default: 10.0, 세 번째 원 애니메이션 지속시간 (초)"
+        },
+        {
+          "name": "uHideImage",
+          "type": "float",
+          "value": 0,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 1.0, default: 0.0, 0: 이미지 마스킹"
+        }
+      ],
+      "channels": [
+        {
+          "id": 0,
+          "url": "assets/스크린샷 2025-10-31 02.59.36.png"
+        }
+      ],
+      "isBlur": false,
+      "radiusX": 0,
+      "radiusY": 0
+    },
+    {
+      "id": 2,
+      "enabled": false,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nuniform float uBlurRadiusX; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nuniform float uBlurRadiusY; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nint uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvec4 main(vec2 fragCoord)\n{\n\n    // Y 방향 반전\n    vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(uBlurRadiusX,uBlurRadiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (uBlurRadiusX+uBlurRadiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = composable.eval(sampleUV * iResolution.xy);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \nreturn vec4(result.rgb * uAlpha, result.a * uAlpha);\n\n}",
+      "webglShaderCode": "int uSampleCount = 9; //min: 5, max: 25, default: 15, 블러 샘플 개수 (홀수 권장)\nfloat uAlpha = 1.0; //min: 0.0, max: 1.0, default: 1.0, 투명도\n\n\nuniform float uBlurRadiusX; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\nuniform float uBlurRadiusY; // min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)\n\n\n// CLAMP 모드 구현\nvec2 clampUV(vec2 uv) {\n   return clamp(uv, 0.0, 1.0);\n}\n\n// 가우시안 가중치 계산\nfloat gaussian(float x, float sigma) {\n   return exp(-0.5 * x * x / (sigma * sigma));\n}\n\nvoid mainImage( out vec4 fragColor, in vec2 fragCoord )\n{\n   // Y 방향 반전\n   vec2 flippedCoord = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n   vec2 uv = fragCoord / iResolution.xy;\n  \n   // 정규화된 블러 반지름 (화면 크기 비율)\n   vec2 normalizedBlurRadius = vec2(uBlurRadiusX,uBlurRadiusY);\n  \n   // 종횡비 보정 (정사각형이 아닌 경우 원형 블러 유지)\n   float aspectRatio = iResolution.x / iResolution.y;\n   if(aspectRatio > 1.0) {\n       normalizedBlurRadius.x /= aspectRatio;\n   } else {\n       normalizedBlurRadius.y *= aspectRatio;\n   }\n  \n   vec4 result = vec4(0.0);\n   float totalWeight = 0.0;\n  \n   // 가우시안 시그마 값\n   float sigma = (uBlurRadiusX+uBlurRadiusY)/2.0 * 0.333;\n  \n   // 샘플링 범위 계산\n   int halfSamples = uSampleCount / 2;\n  \n   // 2D 가우시안 블러 적용\n   for(int x = 0; x < 25; x++) {\n       if(x >= uSampleCount) break;\n      \n       for(int y = 0; y < 25; y++) {\n           if(y >= uSampleCount) break;\n          \n           // 샘플 오프셋 계산 (정규화된 좌표 기준)\n           vec2 offset = vec2(\n               float(x - halfSamples) / float(halfSamples) * normalizedBlurRadius.x,\n               float(y - halfSamples) / float(halfSamples) * normalizedBlurRadius.y\n           );\n          \n           // 샘플 위치 (CLAMP 모드 적용)\n           vec2 sampleUV = clampUV(uv + offset);\n          \n           // 가우시안 가중치 계산\n           float distance = length(offset / normalizedBlurRadius);\n           float weight = gaussian(distance, 1.0);\n          \n           // 텍스처 샘플링\n           vec4 sampleColor = texture(iChannel0, sampleUV);\n          \n           result += sampleColor * weight;\n           totalWeight += weight;\n       }\n   }\n  \n   // 정규화\n   if(totalWeight > 0.0) {\n       result /= totalWeight;\n   }\n  \n   fragColor = vec4(result.rgb * uAlpha, result.a * uAlpha);\n}\n",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "uBlurRadiusX",
+          "type": "float",
+          "value": 0.03,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)"
+        },
+        {
+          "name": "uBlurRadiusY",
+          "type": "float",
+          "value": 0.03,
+          "isCustom": true,
+          "minValue": 0,
+          "maxValue": 0.1,
+          "defaultValue": 0,
+          "comment": "min: 0.0, max: 0.1, default: 0.0, 0.05 = 화면의 5%)"
+        }
+      ],
+      "channels": [],
+      "isBlur": true,
+      "radiusX": 0,
+      "radiusY": 0
+    },
+    {
+      "id": 3,
+      "enabled": false,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nvec4 main(vec2 fragCoord)\n{\n\n    vec2 uv = fragCoord / iResolution.xy;\nreturn composable.eval(uv * iResolution.xy);\n\n}",
+      "webglShaderCode": "void mainImage(out vec4 fragColor, in vec2 fragCoord) {\n    vec2 uv = fragCoord / iResolution.xy;\n    fragColor = texture(iChannel0, uv);\n}",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        }
+      ],
+      "channels": [],
+      "isBlur": false,
+      "radiusX": 0,
+      "radiusY": 0
+    },
+    {
+      "id": 4,
+      "enabled": false,
+      "agslShaderCode": "uniform vec2 iResolution;\nuniform float iTime;\nuniform shader composable;\nvec4 main(vec2 fragCoord)\n{\n\n    vec2 uv = fragCoord / iResolution.xy;\nreturn composable.eval(uv * iResolution.xy);\n\n}",
+      "webglShaderCode": "void mainImage(out vec4 fragColor, in vec2 fragCoord) {\n    vec2 uv = fragCoord / iResolution.xy;\n    fragColor = texture(iChannel0, uv);\n}",
+      "uniforms": [
+        {
+          "name": "iResolution",
+          "type": "float2",
+          "value": [
+            320,
+            320
+          ],
+          "isCustom": false,
+          "comment": ""
+        },
+        {
+          "name": "iTime",
+          "type": "float",
+          "value": 0,
+          "isCustom": false,
+          "comment": ""
+        }
+      ],
+      "channels": [],
+      "isBlur": false,
+      "radiusX": 0,
+      "radiusY": 0
+    }
+  ],
+  "globalSettings": {
+    "canvasWidth": 320,
+    "canvasHeight": 320,
+    "backgroundImageOpacity": 0.5,
+    "backgroundImageFit": "cover"
+  },
+  "assetManifest": [
+    "assets/스크린샷 2025-10-31 02.59.36.png"
+  ],
+  "frameRate": 60,
+  "stopAfterDelay": 600000,
+  "needStopAfterInitAnimation": false,
+  "needStopAfterDelay": false,
+  "needInitAnimation": false,
+  "initAnimationDuration": 1,
+  "stopAnimationDuration": 3000,
+  "category": "Multi-Shader",
+  "description": "Multi-shader pipeline project",
+  "sceneName": "Main Scene",
+  "projectName": "media_album_masking",
+  "exportedAt": "2025-11-20T01:06:57.989Z",
+  "originalProjectPath": "/Users/bdhwan/git/samsung-git/media_art_share/shader-project/media_album_masking/agsl_layer.json"
+}

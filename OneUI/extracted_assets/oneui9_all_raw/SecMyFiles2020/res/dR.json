@@ -1,0 +1,21 @@
+{
+  "client_id": "d5e6af94-cdf0-4cf4-bc48-f9bfba16b189",
+  "authorization_user_agent": "WEBVIEW",
+  "redirect_uri": "msauth://com.sec.android.app.myfiles/nKUXDzgZGd%2FgRG%2FNqxixmhQ7MWM%3D",
+  "account_mode": "MULTIPLE",
+  "broker_redirect_uri_registered": "true",
+  "authorities": [
+    {
+      "type": "AAD",
+      "authority_url": "https://login.microsoftonline.com/common"
+    }
+  ],
+  "browser_safelist": [
+    {
+      "browser_package_name": "com.sec.android.app.sbrowser",
+      "browser_signature_hashes": [
+        "XYAvJNasdscIqOev4o_ZfgOPiIzvZmX7m0qSI0wxHW_0ISfMsutaiY9Ofk5VP272AtQ9Gi666fACplmOcv0tgw=="
+      ]
+    }
+  ]
+}

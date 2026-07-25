@@ -1,0 +1,17 @@
+{
+  "com.sec.android.gallery3d.provider.SettingSearchIndexablesProvider": [
+    {
+      "com.samsung.android.settings.intelligence.TAG_AWESOME_INTELLIGENCE": [
+        "edit_suggestions",
+        "object_eraser",
+        "best_face"
+      ]
+    },
+    {
+      "com.samsung.android.settings.intelligence.TAG_ADVANCED_INTELLIGENCE": [
+        "photo_assist",
+        "audio_eraser"
+      ]
+    }
+  ]
+}

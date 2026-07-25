@@ -1,0 +1,27 @@
+{
+  "data": [
+    {
+      "version": 6,
+      "clocks": [
+        {"oldType":"1", "newType":"AOD_DIGITAL_CLOCK_03", "group":"CATEGORY_DIGITAL_CLOCK"},
+        {"oldType":"2", "newType":"AOD_DIGITAL_CLOCK_01", "group":"CATEGORY_DIGITAL_CLOCK"},
+        {"oldType":"3", "newType":"AOD_DIGITAL_CLOCK_02", "group":"CATEGORY_DIGITAL_CLOCK"},
+        {"oldType":"10000", "newType":"AOD_ANALOG_CLOCK_01", "group":"CATEGORY_ANALOG_CLOCK"},
+        {"oldType":"10001", "newType":"AOD_ANALOG_CLOCK_01", "group":"CATEGORY_ANALOG_CLOCK"},
+        {"oldType":"10002", "newType":"AOD_ANALOG_CLOCK_01", "group":"CATEGORY_ANALOG_CLOCK"},
+        {"oldType":"10003", "newType":"AOD_ANALOG_CLOCK_01", "group":"CATEGORY_ANALOG_CLOCK"},
+        {"oldType":"10004", "newType":"AOD_ANALOG_CLOCK_01", "group":"CATEGORY_ANALOG_CLOCK"},
+        {"oldType":"10005", "newType":"AOD_ANALOG_CLOCK_01", "group":"CATEGORY_ANALOG_CLOCK"},
+        {"oldType":"50000", "newType":"AOD_USER_IMAGE_CLOCK", "group":"CATEGORY_IMAGE_CLOCK"},
+        {"oldType":"50001", "newType":"AOD_CALENDAR_CLOCK_01", "group":"CATEGORY_CALENDAR"},
+        {"oldType":"50002", "newType":"AOD_WORLD_CLOCK", "group":"CATEGORY_WORLD_CLOCK"},
+        {"oldType":"50003", "newType":"EDGE_CLOCK", "group":"CATEGORY_EDGE_CLOCK"},
+        {"oldType":"50004", "newType":"AOD_NORMAL_THEME_CLOCK", "group":"CATEGORY_THEME_CLOCK"},
+        {"oldType":"50005", "newType":"AOD_NORMAL_THEME_IMAGE", "group":"CATEGORY_THEME_CLOCK"},
+        {"oldType":"50006", "newType":"AOD_SINGLE_THEME_CLOCK", "group":"CATEGORY_THEME_CLOCK"},
+        {"oldType":"50007", "newType":"AOD_SINGLE_THEME_IMAGE", "group":"CATEGORY_THEME_CLOCK"}
+      ]
+    }
+  ]
+}
+

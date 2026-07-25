@@ -1,0 +1,13 @@
+{
+  "data": [
+    {
+      "oldVersion": 90000,
+      "newVersion": 100000,
+      "palette": [
+        {"oldIndex":0, "newIndex":1},
+        {"oldIndex":1, "newIndex":0}
+      ]
+    }
+  ]
+}
+

@@ -1,0 +1,24 @@
+{
+  "com.samsung.android.lool.search": [
+    {
+      "com.samsung.android.settings.intelligence.TAG_RECOMMENDED": [
+        "title_battery"
+      ]
+    },
+    {
+      "com.samsung.android.settings.intelligence.TAG_BATTERY_TROUBLE": [
+        "title_device_care",
+        "title_battery"
+      ]
+    },
+    {
+      "com.samsung.android.settings.intelligence.TAG_PERFORMANCE": [
+        "title_storage",
+        "title_ram",
+        "key_battery_advanced_menu_processing_speed",
+        "key_battery_advanced_menu_enhanced_cpu",
+        "key_battery_advanced_menu_perf_opt_mode"
+      ]
+    }
+  ]
+}

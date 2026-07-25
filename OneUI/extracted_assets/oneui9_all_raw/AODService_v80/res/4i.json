@@ -1,0 +1,10 @@
+{
+  "com.samsung.android.app.aodservice.search": [
+    {
+      "com.samsung.android.settings.intelligence.TAG_INITIAL_CUSTOM": [
+        "subscreen_clockstyle",
+        "subscreen_widget"
+      ]
+    }
+  ]
+}
