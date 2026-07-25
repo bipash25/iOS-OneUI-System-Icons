@@ -7,6 +7,7 @@ OneUI/Frija_v2.0.26142.10.zip
 OneUI/firmware.zip
 OneUI/extracted_firmware/
 OneUI/extracted_assets/oneui9_raw_extracted/
+OneUI/extracted_assets/oneui9_all_raw/
 *.dmg
 *.zip
 *.tar
